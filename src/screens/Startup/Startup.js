@@ -17,7 +17,7 @@ function Startup({ navigation }) {
     useEffect(() => {
         navigation.reset({
             index: 0,
-            routes: [{ name: 'Example' }],
+            routes: [{ name: 'Home' }],
         });
     }, [isSuccess]);
     return (<SafeScreen>
