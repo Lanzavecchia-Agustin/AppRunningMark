@@ -8,6 +8,12 @@ const Home = () => {
   const [countdownValue, setCountdownValue] = useState({ category: '', minutes: 0, seconds: 0 });
   const [completedSets, setCompletedSets] = useState(0); // Track completed sets
 
+  const INTERVAL_SETS_KEY = 'sets';
+const INTERVAL_STAGES_KEY = 'stages';
+const PREPARATION_STAGE_INDEX = 0;
+const WORK_STAGE_INDEX = 1;
+const REST_STAGE_INDEX = 2;
+
   const animation = new Animated.Value(0);
 
   useEffect(() => {
@@ -49,55 +55,61 @@ const Home = () => {
   }, []);
   
   const startCountdown = ({ category, minutes, seconds }, intervalIndex, stageIndex) => {
-    // Calculate remaining time based on initial duration and animation progress (if applicable)
-    let totalSeconds = minutes * 60 + seconds;
+    const totalSeconds = minutes * 60 + seconds;
     let elapsedTime = 0;
     if (stageIndex > 0 && currentIntervalIndex === intervalIndex) {
       const prevStageDuration = intervals[intervalIndex].stages[stageIndex - 1].minutes * 60 + intervals[intervalIndex].stages[stageIndex - 1].seconds;
-      elapsedTime = prevStageDuration * animation._value; // Pre-calculate elapsed time
-      totalSeconds = Math.max(totalSeconds - elapsedTime, 0); // Ensure non-negative value
+      elapsedTime = prevStageDuration * animation._value;
+      totalSeconds = Math.max(totalSeconds - elapsedTime, 0);
     }
-  
+
     setCountdownValue({ category, minutes, seconds });
     animation.setValue(0);
     Animated.timing(animation, {
       toValue: 1,
-      duration: totalSeconds * 1000, // Use adjusted totalSeconds
+      duration: totalSeconds * 1000,
       easing: Easing.linear,
-      useNativeDriver: false, // Try setting to false for better compatibility
+      useNativeDriver: false,
     }).start(() => {
-      // Avanzar al siguiente stage o intervalo si corresponde
-      if (stageIndex < intervals[intervalIndex].stages.length - 1) {
-        setCurrentStageIndex(stageIndex + 1);
-        setCurrentIntervalIndex(intervalIndex);
-        const nextStage = intervals[intervalIndex].stages[stageIndex + 1];
-        startCountdown(nextStage, intervalIndex, stageIndex + 1);
-      } else {
-        const currentInterval = intervals[intervalIndex];
-        if (currentInterval.sets > completedSets) {
-          setCurrentStageIndex(1); // Reiniciar al trabajo para el siguiente set
-          setCompletedSets(prevSets => prevSets + 1); // Actualizar el estado usando la función de actualización
-          const nextStage = intervals[intervalIndex].stages[1];
-          startCountdown(nextStage, intervalIndex, 1);
-        } else {
-          // Finalizar el intervalo
-          setCurrentIntervalIndex(null);
-          setCurrentStageIndex(null);
-          setCompletedSets(0); // Reset completedSets for the next interval
-          animation.stop(); // Stop the animation on interval completion
-        }
-      }
+      handleCountdownComplete(intervalIndex, stageIndex);
     });
-  
-    // Actualizar countdownValue mientras el countdown está en progreso
+
     animation.addListener((progress) => {
-      const remainingSeconds = Math.ceil((1 - progress.value) * (totalSeconds - elapsedTime)); // Use pre-calculated elapsedTime
+      const remainingSeconds = Math.ceil((1 - progress.value) * (totalSeconds - elapsedTime));
       const remainingMinutes = Math.floor(remainingSeconds / 60);
       const remainingSecondsInMinute = remainingSeconds % 60;
       setCountdownValue({ category, minutes: remainingMinutes, seconds: remainingSecondsInMinute });
     });
   };
-  
+
+  const handleCountdownComplete = (intervalIndex, stageIndex) => {
+    if (stageIndex < intervals[intervalIndex].stages.length - 1) {
+      setCurrentStageIndex(stageIndex + 1);
+      startNextStage(intervalIndex, stageIndex + 1);
+    } else {
+      handleIntervalComplete(intervalIndex);
+    }
+  };
+
+  const startNextStage = (intervalIndex, stageIndex) => {
+    const nextStage = intervals[intervalIndex].stages[stageIndex];
+    startCountdown(nextStage, intervalIndex, stageIndex);
+  };
+
+  const handleIntervalComplete = (intervalIndex) => {
+    const currentInterval = intervals[intervalIndex];
+    if (completedSets > currentInterval.sets) {
+      setCurrentStageIndex(WORK_STAGE_INDEX);
+      setCompletedSets(completedSets + 1);
+      startNextStage(intervalIndex, WORK_STAGE_INDEX);
+    } else {
+      setCurrentIntervalIndex(null);
+      setCurrentStageIndex(null);
+      setCompletedSets(0);
+    //   animation.stop();
+    }
+  };
+
   
   const handleIntervalPress = (intervalIndex) => {
     setCurrentIntervalIndex(intervalIndex);
